@@ -18,15 +18,33 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
-// 🔹 Connect to MongoDB
-// Use a default local URI if not in env, or expect it in env.
-// Given previous context, user tried process.env.MONGO_URI.
-// I will provide a fallback for local dev if missing, or user needs to set it.
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/pomsa_translator";
 
-mongoose.connect(MONGO_URI)
-  .then(() => logEvent("✅ MongoDB Connected"))
-  .catch(err => logEvent(`❌ MongoDB Connection Error: ${err.message}`));
+// 🔹 MongoDB Connection Handler
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected) return;
+
+  try {
+    const db = await mongoose.connect(MONGO_URI);
+    isConnected = db.connections[0].readyState;
+    logEvent("✅ MongoDB Connected");
+  } catch (err) {
+    logEvent(`❌ MongoDB Connection Error: ${err.message}`);
+    throw err;
+  }
+};
+
+// 🔹 Middleware to ensure DB connection before every request
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ message: "Database connection failed", error: err.message });
+  }
+});
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
