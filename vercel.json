@@ -1,0 +1,13 @@
+{
+    "version": 2,
+    "rewrites": [
+        {
+            "source": "/(register|login|forgot-password|verify-otp|reset-password|translate)",
+            "destination": "/backend/server.js"
+        },
+        {
+            "source": "/",
+            "destination": "/index.html"
+        }
+    ]
+}

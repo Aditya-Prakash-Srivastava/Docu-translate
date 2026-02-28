@@ -1,0 +1,23 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Backend Logs
+backend/server.log
+
+# Dependencies
+node_modules
+dist
+dist-ssr
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
