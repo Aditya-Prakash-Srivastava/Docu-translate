@@ -38,9 +38,13 @@ const logEvent = (message) => {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}\n`;
   console.log(message);
-  fs.appendFile(LOG_FILE, logMessage, (err) => {
-    if (err) console.error("Failed to write to log file:", err);
-  });
+
+  // 🔹 Only write to file if NOT in production (Vercel filesystem is read-only)
+  if (process.env.NODE_ENV !== "production") {
+    fs.appendFile(LOG_FILE, logMessage, (err) => {
+      if (err) console.error("Failed to write to log file:", err);
+    });
+  }
 };
 
 // 🔹 Middleware Rules
@@ -159,7 +163,8 @@ app.post("/forgot-password", async (req, res) => {
     res.json({ message: "OTP sent to email" });
   } catch (error) {
     logEvent(`Forgot Password Error: ${error.message}`);
-    res.status(500).json({ message: "Error sending email" });
+    // Return actual error message to help debugging (can be simplified later)
+    res.status(500).json({ message: `Error sending email: ${error.message}` });
   }
 });
 
