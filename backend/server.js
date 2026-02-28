@@ -16,7 +16,16 @@ import authMiddleware from "./middleware/authmiddleware.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({ path: path.resolve(__dirname, ".env") });
+}
+
+// 🔹 Verify Environment Variables
+console.log("Environment Check:", {
+  NODE_ENV: process.env.NODE_ENV,
+  HAS_MONGO: !!process.env.MONGO_URI,
+  HAS_GEMINI: !!process.env.GEMINI_API_KEY,
+});
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/pomsa_translator";
 
@@ -38,11 +47,23 @@ const connectDB = async () => {
 
 // 🔹 Middleware to ensure DB connection before every request
 app.use(async (req, res, next) => {
+  if (!process.env.MONGO_URI) {
+    return res.status(500).json({
+      message: "MONGO_URI is missing in Environment Variables!",
+      hint: "Vercel dashboard me Settings > Environment Variables check kro."
+    });
+  }
+
   try {
     await connectDB();
     next();
   } catch (err) {
-    res.status(500).json({ message: "Database connection failed", error: err.message });
+    console.error("DB Connection Middleware Error:", err);
+    res.status(500).json({
+      message: "Database connection failed",
+      error: err.message,
+      hint: "Check if your IP is whitelisted (0.0.0.0/0) in MongoDB Atlas."
+    });
   }
 });
 
