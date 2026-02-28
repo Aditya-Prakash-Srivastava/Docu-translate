@@ -29,6 +29,25 @@ console.log("Environment Check:", {
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/pomsa_translator";
 
+const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// 🔹 Logging Setup
+const LOG_FILE = path.join(__dirname, "server.log");
+
+const logEvent = (message) => {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  console.log(message);
+
+  // 🔹 Only write to file if NOT in production (Vercel filesystem is read-only)
+  if (process.env.NODE_ENV !== "production") {
+    fs.appendFile(LOG_FILE, logMessage, (err) => {
+      if (err) console.error("Failed to write to log file:", err);
+    });
+  }
+};
+
 // 🔹 MongoDB Connection Handler
 let isConnected = false;
 
@@ -44,6 +63,10 @@ const connectDB = async () => {
     throw err;
   }
 };
+
+// 🔹 Middleware Rules
+app.use(cors({ origin: "*" }));
+app.use(express.json());
 
 // 🔹 Middleware to ensure DB connection before every request
 app.use(async (req, res, next) => {
@@ -66,29 +89,6 @@ app.use(async (req, res, next) => {
     });
   }
 });
-
-const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
-
-// 🔹 Logging Setup
-const LOG_FILE = path.join(__dirname, "server.log");
-
-const logEvent = (message) => {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}\n`;
-  console.log(message);
-
-  // 🔹 Only write to file if NOT in production (Vercel filesystem is read-only)
-  if (process.env.NODE_ENV !== "production") {
-    fs.appendFile(LOG_FILE, logMessage, (err) => {
-      if (err) console.error("Failed to write to log file:", err);
-    });
-  }
-};
-
-// 🔹 Middleware Rules
-app.use(cors({ origin: "*" }));
-app.use(express.json());
 
 // Log every request
 app.use((req, res, next) => {
