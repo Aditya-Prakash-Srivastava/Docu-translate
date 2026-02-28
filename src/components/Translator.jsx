@@ -24,7 +24,7 @@ function Translator() {
 
     // 🔹 Connectivity Check
     React.useEffect(() => {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+        const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
         fetch(`${API_URL}/`)
             .then((res) => res.text())
             .then((data) => console.log("✅ Backend connected:", data))
@@ -48,7 +48,7 @@ function Translator() {
             // Get token from localStorage
             const token = localStorage.getItem("token");
 
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
             const response = await fetch(`${API_URL}/translate`, {
                 method: "POST",
                 headers: {
@@ -86,7 +86,7 @@ function Translator() {
 
             const token = localStorage.getItem("token");
 
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
             const response = await fetch(`${API_URL}/translate`, {
                 method: "POST",
                 headers: {

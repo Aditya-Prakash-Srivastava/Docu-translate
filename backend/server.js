@@ -267,6 +267,10 @@ app.post("/translate", authMiddleware, upload.single("file"), async (req, res) =
   }
 });
 
-app.listen(5001, () => {
-  logEvent("Server running on port 5001");
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(5001, () => {
+    logEvent("Server running on port 5001");
+  });
+}
+
+export default app;

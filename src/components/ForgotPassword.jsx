@@ -12,7 +12,7 @@ function ForgotPassword() {
     const handleSendOTP = async () => {
         setLoading(true);
         try {
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
             const res = await fetch(`${API_URL}/forgot-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -35,7 +35,7 @@ function ForgotPassword() {
     const handleVerifyOTP = async () => {
         setLoading(true);
         try {
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
             const res = await fetch(`${API_URL}/verify-otp`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -58,7 +58,7 @@ function ForgotPassword() {
     const handleResetPassword = async () => {
         setLoading(true);
         try {
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
             const res = await fetch(`${API_URL}/reset-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

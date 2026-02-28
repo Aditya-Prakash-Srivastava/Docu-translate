@@ -7,7 +7,7 @@ function Login() {
 
     const handleLogin = async () => {
         try {
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
             const res = await fetch(`${API_URL}/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
