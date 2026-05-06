@@ -9,6 +9,7 @@ import multer from "multer";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 import User from "./models/user.js";
 import authMiddleware from "./middleware/authmiddleware.js";
@@ -104,7 +105,16 @@ app.get("/", (req, res) => {
   res.send("Backend working");
 });
 
-// ✅ REGISTER ROUTE
+// ✅ NODEMAILER CONFIG
+const getTransporter = () => nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+// ✅ REGISTER ROUTE (Send OTP)
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -112,23 +122,67 @@ app.post("/register", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
+    let user = await User.findOne({ email });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpire = Date.now() + 10 * 60 * 1000; // 10 mins
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-    });
+    if (user) {
+      if (user.isVerified) {
+        return res.status(400).json({ message: "User already exists and is verified" });
+      }
+      // Update unverified user
+      user.name = name;
+      user.password = hashedPassword;
+      user.otp = otp;
+      user.otpExpire = otpExpire;
+      await user.save();
+    } else {
+      user = await User.create({
+        name,
+        email,
+        password: hashedPassword,
+        otp,
+        otpExpire,
+        isVerified: false
+      });
+    }
 
-    logEvent(`New user registered: ${email}`);
-    res.json({ message: "User registered successfully" });
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Signup OTP - POMSA",
+      text: `Your OTP for registration is: ${otp}. It expires in 10 minutes.`,
+    };
+
+    await getTransporter().sendMail(mailOptions);
+    logEvent(`Signup OTP sent to ${email}`);
+    res.json({ message: "OTP sent to email" });
   } catch (error) {
     logEvent(`Register Error: ${error.message}`);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ✅ VERIFY REGISTER OTP
+app.post("/register-verify", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email, otp, otpExpire: { $gt: Date.now() } });
+
+    if (!user) return res.status(400).json({ message: "Invalid or expired OTP" });
+
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpire = undefined;
+    await user.save();
+
+    const JWT_SECRET = process.env.JWT_SECRET || "default_secret_key_change_me";
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
+
+    logEvent(`User registered and verified: ${email}`);
+    res.json({ message: "Registration successful", token });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
@@ -143,19 +197,17 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    if (!user.isVerified) {
+      return res.status(400).json({ message: "Please verify your email first. Sign up again to get a new OTP." });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // Use a default secret if not provided
     const JWT_SECRET = process.env.JWT_SECRET || "default_secret_key_change_me";
-
-    const token = jwt.sign(
-      { id: user._id },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
 
     logEvent(`User logged in: ${email}`);
     res.json({ token });
@@ -165,17 +217,26 @@ app.post("/login", async (req, res) => {
   }
 });
 
-import nodemailer from "nodemailer";
+// ✅ GET PROFILE
+app.get("/user/me", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password -otp -otpExpire");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
-// ... (previous imports and setup)
-
-// ✅ NODEMAILER CONFIG
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+// ✅ DELETE ACCOUNT
+app.delete("/user/me", authMiddleware, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.user.id);
+    logEvent(`User account deleted: ID ${req.user.id}`);
+    res.json({ message: "Account deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // ✅ FORGOT PASSWORD - Send OTP
@@ -183,7 +244,7 @@ app.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user || !user.isVerified) return res.status(404).json({ message: "Verified user not found" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.otp = otp;
@@ -197,17 +258,16 @@ app.post("/forgot-password", async (req, res) => {
       text: `Your OTP for password reset is: ${otp}. It expires in 10 minutes.`,
     };
 
-    await transporter.sendMail(mailOptions);
+    await getTransporter().sendMail(mailOptions);
     logEvent(`OTP sent to ${email}`);
     res.json({ message: "OTP sent to email" });
   } catch (error) {
     logEvent(`Forgot Password Error: ${error.message}`);
-    // Return actual error message to help debugging (can be simplified later)
     res.status(500).json({ message: `Error sending email: ${error.message}` });
   }
 });
 
-// ✅ VERIFY OTP
+// ✅ VERIFY OTP (Forgot Password)
 app.post("/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
