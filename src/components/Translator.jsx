@@ -59,7 +59,7 @@ function Translator() {
 
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.message || "Translation failed");
+                throw new Error(data.message || data.error || "Translation failed");
             }
             setResultText(data.output);
         } catch (err) {
@@ -97,7 +97,7 @@ function Translator() {
 
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.message || "Processing failed");
+                throw new Error(data.message || data.error || "Processing failed");
             }
             setResultText(data.output);
         } catch (err) {
