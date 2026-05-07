@@ -23,6 +23,12 @@ function Translator() {
     const [userProfile, setUserProfile] = useState(null);
     const [showProfileDrawer, setShowProfileDrawer] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [isEditingPassword, setIsEditingPassword] = useState(false);
 
     // 🔹 Connectivity Check & Fetch Profile
     React.useEffect(() => {
@@ -43,6 +49,7 @@ function Translator() {
                 if (res.ok) {
                     const data = await res.json();
                     setUserProfile(data);
+                    setEditName(data.name);
                 }
             } catch (err) {
                 console.error("Failed to fetch profile", err);
@@ -50,6 +57,68 @@ function Translator() {
         };
         fetchProfile();
     }, []);
+
+    // 🔹 Update Handlers
+    const handleUpdateName = async () => {
+        if (!editName.trim()) return alert("Name cannot be empty");
+        try {
+            const token = localStorage.getItem("token");
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
+            const res = await fetch(`${API_URL}/user/me/name`, {
+                method: "PUT",
+                headers: { 
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ newName: editName })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setUserProfile({ ...userProfile, name: data.name });
+                setIsEditingName(false);
+                alert("Name updated successfully!");
+            } else {
+                alert(data.message || "Failed to update name");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Something went wrong");
+        }
+    };
+
+    const handleUpdatePassword = async () => {
+        if (!currentPassword || !newPassword || !confirmPassword) return alert("Please fill all fields");
+        if (newPassword !== confirmPassword) return alert("New password and Confirm password do not match!");
+
+        const isConfirmed = window.confirm("Are you sure you want to change your password?");
+        if (!isConfirmed) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5001" : "");
+            const res = await fetch(`${API_URL}/user/me/password`, {
+                method: "PUT",
+                headers: { 
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setCurrentPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
+                setIsEditingPassword(false);
+                alert("Password updated successfully!");
+            } else {
+                alert(data.message || "Failed to update password");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Something went wrong");
+        }
+    };
 
     // 🔹 Translate only
     const handleTranslate = async () => {
@@ -188,9 +257,11 @@ function Translator() {
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
                     
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white font-bold text-lg leading-none">P</span>
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center border border-gray-300">
+                            <svg className="w-7 h-7 text-gray-400 mt-2" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                            </svg>
                         </div>
                         <h1 className="text-xl font-bold tracking-tight text-gray-800 hidden sm:block">
                             POMSA <span className="font-normal text-gray-500">Translator</span>
@@ -234,6 +305,93 @@ function Translator() {
                             </div>
 
                             <div className="space-y-4">
+                                {/* Update Name Section */}
+                                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Profile Name</h4>
+                                        <button 
+                                            onClick={() => {
+                                                setIsEditingName(!isEditingName);
+                                                if (!isEditingName && userProfile) setEditName(userProfile.name);
+                                            }}
+                                            className="text-blue-600 text-sm font-medium hover:underline"
+                                        >
+                                            {isEditingName ? "Cancel" : "Edit"}
+                                        </button>
+                                    </div>
+                                    {isEditingName ? (
+                                        <div className="space-y-3">
+                                            <input 
+                                                type="text" 
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                placeholder="Enter new name"
+                                            />
+                                            <button 
+                                                onClick={handleUpdateName}
+                                                className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+                                            >
+                                                Save Name
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-800 font-medium">{userProfile?.name}</p>
+                                    )}
+                                </div>
+
+                                {/* Update Password Section */}
+                                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Security</h4>
+                                        <button 
+                                            onClick={() => {
+                                                setIsEditingPassword(!isEditingPassword);
+                                                setCurrentPassword("");
+                                                setNewPassword("");
+                                                setConfirmPassword("");
+                                            }}
+                                            className="text-blue-600 text-sm font-medium hover:underline"
+                                        >
+                                            {isEditingPassword ? "Cancel" : "Change Password"}
+                                        </button>
+                                    </div>
+                                    {isEditingPassword ? (
+                                        <div className="space-y-3">
+                                            <input 
+                                                type="password" 
+                                                value={currentPassword}
+                                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                placeholder="Current Password"
+                                            />
+                                            <input 
+                                                type="password" 
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                placeholder="New Password"
+                                            />
+                                            <input 
+                                                type="password" 
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                placeholder="Confirm New Password"
+                                            />
+                                            <button 
+                                                onClick={handleUpdatePassword}
+                                                className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+                                            >
+                                                Update Password
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-500 text-sm">••••••••</p>
+                                    )}
+                                </div>
+
+                                {/* Danger Zone */}
                                 <div className="p-5 bg-red-50 rounded-xl border border-red-100">
                                     <h4 className="font-semibold text-red-800 mb-2 flex items-center gap-2">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
